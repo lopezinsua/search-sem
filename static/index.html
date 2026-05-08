@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>search-sem · arXiv AI search</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #00ff41;
+      --green-dim: #00cc33;
+      --green-faint: #003300;
+      --bg: #0a0a0a;
+      --card-bg: #0f0f0f;
+      --border: #1a3a1a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .logo {
+      font-size: 1.1rem;
+      letter-spacing: 0.3em;
+      color: var(--green-dim);
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      text-shadow: 0 0 20px var(--green);
+    }
+
+    .subtitle {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--green-dim);
+      letter-spacing: 0.1em;
+    }
+
+    .search-box {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--green-dim);
+      margin-bottom: 2rem;
+    }
+
+    .prompt-symbol {
+      padding: 0.75rem 0.8rem;
+      color: var(--green-dim);
+      background: var(--green-faint);
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--green);
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.75rem 0.5rem;
+      outline: none;
+      caret-color: var(--green);
+    }
+
+    input[type="text"]::placeholder { color: #1a5a1a; }
+
+    button {
+      background: var(--green-faint);
+      border: none;
+      border-left: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.75rem 1.2rem;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #004400; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #status {
+      width: 100%;
+      max-width: 720px;
+      font-size: 0.78rem;
+      color: var(--green-dim);
+      min-height: 1.2rem;
+      margin-bottom: 1rem;
+      letter-spacing: 0.05em;
+    }
+
+    #results {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .result-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 1rem 1.2rem;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--green-dim);
+      margin-bottom: 0.6rem;
+      letter-spacing: 0.05em;
+    }
+
+    .score-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .bar-track {
+      width: 80px;
+      height: 4px;
+      background: #0d200d;
+      position: relative;
+    }
+
+    .bar-fill {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      background: var(--green);
+      transition: width 0.4s ease;
+    }
+
+    .result-text {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: #b0ffb0;
+    }
+
+    .blink {
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .suggestions {
+      width: 100%;
+      max-width: 720px;
+      margin-bottom: 1.5rem;
+      font-size: 0.75rem;
+      color: #1a5a1a;
+    }
+
+    .suggestions span {
+      cursor: pointer;
+      margin-right: 1rem;
+      letter-spacing: 0.03em;
+    }
+
+    .suggestions span:hover { color: var(--green-dim); }
+
+    footer {
+      margin-top: 3rem;
+      font-size: 0.7rem;
+      color: #0d3a0d;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">[ SEARCH-SEM v1.0 ]</div>
+    <h1>arXiv<span class="blink">_</span>search</h1>
+    <p class="subtitle">semantic search over AI/ML research abstracts &mdash; powered by FAISS + sentence-transformers</p>
+  </header>
+
+  <div class="search-box">
+    <span class="prompt-symbol">$&gt;</span>
+    <input id="q" type="text" placeholder="how does attention mechanism work..." autocomplete="off" />
+    <button id="btn" onclick="runSearch()">QUERY</button>
+  </div>
+
+  <div class="suggestions">
+    try:
+    <span onclick="setQ('retrieval augmented generation')">retrieval augmented generation</span>
+    <span onclick="setQ('transformer attention mechanism')">transformer attention</span>
+    <span onclick="setQ('fine-tuning language models')">fine-tuning LLMs</span>
+    <span onclick="setQ('graph neural networks')">graph neural networks</span>
+  </div>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+  <footer>search-sem &mdash; lucas lopez &mdash; 2025</footer>
+
+  <script>
+    const input = document.getElementById('q');
+    const btn = document.getElementById('btn');
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
+
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') runSearch(); });
+
+    function setQ(text) {
+      input.value = text;
+      input.focus();
+    }
+
+    async function runSearch() {
+      const q = input.value.trim();
+      if (!q) return;
+
+      btn.disabled = true;
+      status.textContent = '> searching...';
+      results.innerHTML = '';
+
+      try {
+        const t0 = performance.now();
+        const res = await fetch('/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q, top_k: 5 }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          status.textContent = `> error: ${err.detail}`;
+          return;
+        }
+
+        const hits = await res.json();
+        const ms = (performance.now() - t0).toFixed(0);
+        status.textContent = `> ${hits.length} results in ${ms}ms`;
+
+        hits.forEach((hit, i) => {
+          const pct = Math.max(0, Math.min(100, hit.score * 100)).toFixed(0);
+          const card = document.createElement('div');
+          card.className = 'result-card';
+          card.style.animationDelay = `${i * 60}ms`;
+          card.innerHTML = `
+            <div class="result-meta">
+              <span>${hit.source}</span>
+              <span class="score-bar">
+                <span>${(hit.score * 100).toFixed(1)}%</span>
+                <span class="bar-track"><span class="bar-fill" style="width:${pct}%"></span></span>
+              </span>
+            </div>
+            <div class="result-text">${escapeHtml(hit.text)}</div>
+          `;
+          results.appendChild(card);
+        });
+
+      } catch (e) {
+        status.textContent = `> connection error`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
