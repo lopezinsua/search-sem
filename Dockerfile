@@ -20,6 +20,9 @@ RUN PYTHONPATH=. python scripts/download_corpus.py --limit 300 --out data/corpus
     && rm -rf data/corpus
 
 # HuggingFace Spaces requires port 7860
+RUN useradd -m -u 1000 appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 7860
 
 CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "7860"]
