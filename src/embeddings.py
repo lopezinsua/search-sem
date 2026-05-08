@@ -4,7 +4,8 @@ from src.config import SENTENCE_MODEL
 _model: SentenceTransformer | None = None
 
 
-def _get_model() -> SentenceTransformer:
+def get_model() -> SentenceTransformer:
+    """Return shared model instance, loaded once at startup."""
     global _model
     if _model is None:
         _model = SentenceTransformer(SENTENCE_MODEL)
@@ -12,7 +13,7 @@ def _get_model() -> SentenceTransformer:
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    return _get_model().encode(texts, normalize_embeddings=True).tolist()
+    return get_model().encode(texts, normalize_embeddings=True).tolist()
 
 
 def embed_one(text: str) -> list[float]:

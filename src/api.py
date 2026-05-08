@@ -1,21 +1,25 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from src.index import load_index, search
-from src.embeddings import embed_one
+from pydantic import BaseModel, field_validator
+
 from src.config import TOP_K
+from src.embeddings import embed_one, get_model
+from src.index import load_index, search
 
 _index, _chunks = None, None
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
+MAX_QUERY_LENGTH = 1000
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _index, _chunks
+    get_model()  # pre-load at startup to prevent race conditions on first request
     _index, _chunks = load_index()
     yield
 
@@ -29,6 +33,13 @@ if STATIC_DIR.exists():
 class Query(BaseModel):
     q: str
     top_k: int = TOP_K
+
+    @field_validator("q")
+    @classmethod
+    def validate_query_length(cls, v: str) -> str:
+        if len(v) > MAX_QUERY_LENGTH:
+            raise ValueError(f"Query exceeds {MAX_QUERY_LENGTH} characters")
+        return v
 
 
 class Result(BaseModel):

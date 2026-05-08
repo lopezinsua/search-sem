@@ -1,11 +1,11 @@
 """
 Tests for the search-sem API.
-Uses a small in-memory FAISS index (no disk, no real corpus).
+Uses a small in-memory FAISS index (no disk, no real corpus, no model download).
 """
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import faiss
 import numpy as np
@@ -25,32 +25,25 @@ DUMMY_TEXTS = [
     "Dense retrieval outperforms BM25 on many semantic benchmarks.",
 ]
 
-DIM = 384  # all-MiniLM-L6-v2 dimension
+DIM = 384
 
 
 def _make_dummy_index(tmp_dir: str) -> tuple[str, str]:
-    """Build a tiny FAISS index from random normalized vectors."""
     rng = np.random.default_rng(42)
     vecs = rng.standard_normal((len(DUMMY_TEXTS), DIM)).astype("float32")
-    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    vecs /= norms
-
+    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
     index = faiss.IndexFlatIP(DIM)
     index.add(vecs)
-
     index_path = str(Path(tmp_dir) / "index.faiss")
     chunks_path = str(Path(tmp_dir) / "chunks.json")
     faiss.write_index(index, index_path)
-
     chunks = [{"text": t, "source": f"dummy/{i}.txt"} for i, t in enumerate(DUMMY_TEXTS)]
     with open(chunks_path, "w") as f:
         json.dump(chunks, f)
-
     return index_path, chunks_path
 
 
 def _dummy_embed(text: str) -> list[float]:
-    """Returns a deterministic normalized vector so tests are reproducible."""
     rng = np.random.default_rng(abs(hash(text)) % (2**31))
     vec = rng.standard_normal(DIM).astype("float32")
     vec /= np.linalg.norm(vec)
@@ -65,11 +58,11 @@ def client():
             patch("src.config.INDEX_PATH", index_path),
             patch("src.config.CHUNKS_PATH", chunks_path),
             patch("src.embeddings.embed_one", side_effect=_dummy_embed),
+            patch("src.embeddings.get_model", return_value=MagicMock()),
             patch("src.index.INDEX_PATH", index_path),
             patch("src.index.CHUNKS_PATH", chunks_path),
         ):
             from src.api import app
-
             with TestClient(app) as c:
                 yield c
 
@@ -98,6 +91,11 @@ def test_search_top_k(client):
 def test_search_empty_query(client):
     r = client.post("/search", json={"q": "   "})
     assert r.status_code == 400
+
+
+def test_search_query_too_long(client):
+    r = client.post("/search", json={"q": "x" * 1001})
+    assert r.status_code == 422
 
 
 def test_search_results_ordered_by_score(client):
