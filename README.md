@@ -2,7 +2,7 @@
 title: search-sem
 emoji: 🔍
 colorFrom: green
-colorTo: black
+colorTo: gray
 sdk: docker
 pinned: false
 ---
