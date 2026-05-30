@@ -56,7 +56,7 @@ def main():
     all_papers: list[dict] = []
     start = 0
 
-    print(f"Downloading arXiv AI/ML abstracts (cs.CL, cs.AI, cs.LG, cs.IR)...")
+    print("Downloading arXiv AI/ML abstracts (cs.CL, cs.AI, cs.LG, cs.IR)...")
     print(f"Target: {args.limit} papers\n")
 
     while len(all_papers) < args.limit:
